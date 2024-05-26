@@ -9,17 +9,17 @@ This Flutter mobile application allows users to corrupt files, creating altered 
 - Easy to use
 
 ## Screenshots
-![Upload](upload.png)
+![Upload](assets/screenshots/upload.png)
 *Upload your file*
 \
 \
 \
-![Corrupt](corrupt.png)
+![Corrupt](assets/screenshots/corrupt.png)
 *Corrupt your file*
 \
 \
 \
-![Save](save.png)
+![Save](assets/screenshots/save.png)
 *Save corrupted file*
 
 ## Demo video

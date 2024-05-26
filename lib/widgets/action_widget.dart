@@ -1,4 +1,4 @@
-import 'package:file_corrupter/home_screen.dart';
+import 'package:file_corrupter/screens/home_screen.dart';
 import 'package:flutter/material.dart';
 
 class ActionWidget extends StatelessWidget {

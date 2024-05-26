@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:file_corrupter/home_screen.dart';
+import 'package:file_corrupter/screens/home_screen.dart';
 
 void main() {
   runApp(

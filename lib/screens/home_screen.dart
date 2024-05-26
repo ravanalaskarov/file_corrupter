@@ -2,9 +2,9 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:downloadsfolder/downloadsfolder.dart';
-import 'package:file_corrupter/action_widget.dart';
-import 'package:file_corrupter/process_widget.dart';
-import 'package:file_corrupter/upload_widget.dart';
+import 'package:file_corrupter/widgets/action_widget.dart';
+import 'package:file_corrupter/widgets/process_widget.dart';
+import 'package:file_corrupter/widgets/upload_widget.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
