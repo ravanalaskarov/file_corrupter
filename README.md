@@ -28,8 +28,8 @@ https://www.youtube.com/watch?v=96MtrtkdSoE
 
 
 ## Installation
-1. Clone the repository: `git clone https://github.com/ravanalaskarov/file_corrupter.git`
-2. Navigate to the project directory: `cd file_corrupter`
+1. Clone the repository: `git clone https://github.com/ravanalaskarov/flutter-file-corrupter.git`
+2. Navigate to the project directory: `cd flutter-file-corrupter`
 3. Install dependencies: `flutter pub get`
 4. Run the app: `flutter run`
 
