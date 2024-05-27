@@ -1,15 +1,27 @@
 import 'dart:io';
 import 'dart:math';
-
 import 'package:downloadsfolder/downloadsfolder.dart';
-import 'package:file_corrupter/widgets/action_widget.dart';
-import 'package:file_corrupter/widgets/process_widget.dart';
 import 'package:file_corrupter/widgets/upload_widget.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 
 enum FileActions { corrupt, processing, download }
+
+List<int> corruptBytes(Map<String, dynamic> data) {
+  List<int> fileBytes = data['fileBytes'];
+  int tenPercentageOfBytes = data['tenPercentageOfBytes'];
+
+  final randomObject = Random();
+
+  for (int i = 0; i < tenPercentageOfBytes; i++) {
+    fileBytes[randomObject.nextInt(fileBytes.length)] =
+        randomObject.nextInt(256);
+  }
+
+  return fileBytes;
+}
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,96 +31,69 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  File? originalFile;
-  String? fileName;
-  String? fileExtension;
-  final randomObject = Random();
-  File? corruptedFile;
+  PlatformFile? _originalFile;
+  Future<String?>? _corruptFileIsolate;
+  var _corrupting = false;
 
-  int corruptProcess = 0;
 
-  void pickFile() async {
+  void _pickFile() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles();
-
     if (result != null) {
-      PlatformFile file = result.files.first;
       setState(() {
-        originalFile = File(result.files.single.path!);
-        fileName = file.name;
-        fileExtension = file.extension;
+        _originalFile = result.files.first;
       });
     }
   }
 
-  void dismissFile() {
+  void _dismissFile() {
     setState(() {
-      originalFile = null;
-      fileName = null;
-      fileExtension = null;
-      corruptProcess = 0;
-      corruptedFile = null;
+      _originalFile = null;
+      _corrupting = false;
+      _corruptFileIsolate = Future.value(null);
     });
   }
 
-  void createCorruptedFile() async {
+  Future<String> _createCorruptedFile() async {
     final cacheDir = await getTemporaryDirectory();
-    final filePath = '${cacheDir.path}/${fileName!}.${fileExtension!}';
-    corruptedFile = File(filePath);
+    final corruptedFilePath = '${cacheDir.path}/${_originalFile!.name}';
+    final corruptedFile =
+        await File(_originalFile!.path!).copy(corruptedFilePath);
+    final fileBytes = await corruptedFile.readAsBytes();
+    final tenPercentageOfBytes = (fileBytes.length * 0.1).toInt();
 
-    try {
-      final originalAccessFile = await originalFile!.open();
+    final List<int> corruptedBytes = await compute(
+      corruptBytes,
+      {
+        'fileBytes': fileBytes,
+        'tenPercentageOfBytes': tenPercentageOfBytes,
+      },
+    );
 
-      final sink = corruptedFile!.openWrite();
+    await corruptedFile.writeAsBytes(corruptedBytes);
 
-      final length = await originalAccessFile.length();
-
-      for (int i = 0; i < length; i++) {
-        sink.add([randomObject.nextInt(256)]);
-
-        setState(() {
-          corruptProcess = ((i * 100) / length).round();
-        });
-      }
-
-      await originalAccessFile.close();
-
-      await sink.close();
-    } catch (_) {}
+    return corruptedFilePath;
   }
 
-  void saveCorruptedFile() async {
-    bool? success = await copyFileIntoDownloadFolder(corruptedFile!.path, '${fileName!}.${fileExtension!}');
+  void saveCorruptedFile(final corruptedFilePath) async {
+    bool? success = await copyFileIntoDownloadFolder(corruptedFilePath,
+        '${_originalFile!.name}.${_originalFile!.extension}');
     if (success == true) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('File saved successfully.'),
-          )
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('File saved successfully.'),
+        ));
       }
-    }
-    else {
+    } else {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to save the file.'),
-          )
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Failed to save the file.'),
+        ));
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-
-    FileActions fileAction = FileActions.processing;
-
-    if (corruptProcess == 0 && originalFile != null) {
-      fileAction = FileActions.corrupt;
-    } else if (corruptProcess == 100 && corruptedFile != null) {
-      fileAction = FileActions.download;
-    }
-
     return Scaffold(
       appBar: AppBar(
         title: const Text("File Corrupter"),
@@ -116,35 +101,72 @@ class _HomeScreenState extends State<HomeScreen> {
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 15),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const SizedBox(
               height: 40,
             ),
             const Text(
-                "Note: This process will only create a corrupted copy of the file.\nThis process will not corrupt the original file."),
+              "Note: This process will only create a corrupted copy of the file.\nThis process will not corrupt the original file.",
+            ),
             const SizedBox(
               height: 40,
             ),
-            UploadWidget(
-                fileName: fileName,
-                onPressed: originalFile == null ? pickFile : dismissFile),
-            const Spacer(),
-            if (originalFile != null) ProcessWidget(process: corruptProcess),
-            const SizedBox(
-              height: 40,
+            FutureBuilder<String?>(
+              future: _corruptFileIsolate,
+              builder: (context, snapshot) {
+                final corruptedFilePath = snapshot.data;
+
+                Function()? actionButtonOnPressed;
+
+                if (corruptedFilePath != null) {
+                  actionButtonOnPressed = () {
+                    saveCorruptedFile(corruptedFilePath);
+                  };
+                } else if (_originalFile != null) {
+                  actionButtonOnPressed = () {
+                    setState(() {
+                      _corrupting = true;
+                      _corruptFileIsolate = _createCorruptedFile();
+                    });
+                  };
+                }
+
+                return Expanded(
+                  child: Column(
+                    children: [
+                      UploadWidget(
+                        fileName: _originalFile?.name,
+                        onPressed:
+                            _originalFile == null ? _pickFile : _dismissFile,
+                      ),
+                      const Spacer(),
+                      if (corruptedFilePath == null && _corrupting)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 20),
+                          child: LinearProgressIndicator(),
+                        ),
+                      const SizedBox(
+                        height: 40,
+                      ),
+                      ElevatedButton.icon(
+                        icon: Icon(corruptedFilePath == null
+                            ? Icons.insert_page_break
+                            : Icons.save),
+                        label: Text(
+                          corruptedFilePath == null
+                              ? "Corrupt file"
+                              : "Save corrupted file",
+                        ),
+                        onPressed: actionButtonOnPressed,
+                      ),
+                      const SizedBox(
+                        height: 80,
+                      )
+                    ],
+                  ),
+                );
+              },
             ),
-            ActionWidget(
-              action: fileAction,
-              onPressed: fileAction == FileActions.processing
-                  ? null
-                  : (fileAction == FileActions.corrupt
-                      ? createCorruptedFile
-                      : saveCorruptedFile),
-            ),
-            const SizedBox(
-              height: 80,
-            )
           ],
         ),
       ),
